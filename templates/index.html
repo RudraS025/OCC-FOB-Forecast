@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCC FOB Price Forecast</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: linear-gradient(120deg, #f6d365 0%, #fda085 100%); min-height: 100vh; }
+        .container { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 2rem; margin-top: 3rem; }
+        h1 { color: #ff6600; }
+        .forecast-table { margin-top: 2rem; }
+        .btn-custom { background: #ff6600; color: #fff; border: none; }
+        .btn-custom:hover { background: #ff8800; }
+        .message { margin-top: 1rem; color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">OCC FOB (USD/ton) 6-Month Price Forecast</h1>
+        <form method="POST" class="row g-3 justify-content-center">
+            <div class="col-auto">
+                <label for="new_date" class="form-label">Current Month (YYYY-MM)</label>
+                <input type="month" class="form-control" id="new_date" name="new_date" required>
+            </div>
+            <div class="col-auto">
+                <label for="new_value" class="form-label">Actual Price (USD/ton)</label>
+                <input type="number" step="0.01" class="form-control" id="new_value" name="new_value" required>
+            </div>
+            <div class="col-auto align-self-end">
+                <button type="submit" class="btn btn-custom">Add & Forecast</button>
+            </div>
+        </form>
+        {% if message %}
+        <div class="message">{{ message }}</div>
+        {% endif %}
+        <div class="forecast-table">
+            <h4 class="mt-4">Forecast for Next 6 Months (after {{ last_month }})</h4>
+            <table class="table table-bordered table-striped mt-2">
+                <thead class="table-warning">
+                    <tr>
+                        <th>Month</th>
+                        <th>Forecasted Price (USD/ton)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for month, price in forecast %}
+                    <tr>
+                        <td>{{ month }}</td>
+                        <td>{{ price | round(2) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="text-center mt-4">
+            <a href="/download" class="btn btn-outline-primary">Download Results (Excel)</a>
+        </div>
+    </div>
+</body>
+</html>
