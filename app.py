@@ -64,7 +64,11 @@ def index():
         model = load_model()
         forecast = None
         forecast_dates = None
-        last_month = df.index[-1].strftime('%B %Y')
+        last_month = df.index[-1]
+        if pd.isnull(last_month):
+            last_month_str = "No Data"
+        else:
+            last_month_str = last_month.strftime('%B %Y')
         message = None
         if request.method == 'POST':
             try:
@@ -87,8 +91,8 @@ def index():
             preds.append(pred)
             last_logs.append(pred_log)
         forecast_dates = [df.index[-1] + DateOffset(months=i+1) for i in range(6)]
-        forecast = list(zip([d.strftime('%b %Y') for d in forecast_dates], preds))
-        return render_template('index.html', forecast=forecast, last_month=last_month, message=message)
+        forecast = list(zip([d.strftime('%b %Y') if not pd.isnull(d) else "No Date" for d in forecast_dates], preds))
+        return render_template('index.html', forecast=forecast, last_month=last_month_str, message=message)
     except Exception as e:
         return f"Internal Server Error: {e}", 500
 
