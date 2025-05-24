@@ -3,6 +3,6 @@ pandas
 numpy
 joblib
 openpyxl
-xgboost
+xgboost==1.7.6
 scikit-learn
 gunicorn
