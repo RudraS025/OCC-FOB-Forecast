@@ -6,17 +6,20 @@ import os
 import sqlite3
 from datetime import datetime
 from pandas.tseries.offsets import DateOffset
+import xgboost as xgb
 
 app = Flask(__name__)
 
-MODEL_PATH = 'xgboost_occ_fob_model.pkl'
+MODEL_PATH = 'xgboost_occ_fob_model.json'
 DATA_PATH = 'Paper_TimeSeries.xlsx'
 RESULTS_PATH = 'OCC_FOB_Results.xlsx'
 DB_PATH = 'occ_fob_data.db'
 
 # Load model and data
 def load_model():
-    return joblib.load(MODEL_PATH)
+    booster = xgb.Booster()
+    booster.load_model('xgboost_occ_fob_model.json')
+    return booster
 
 def init_db_from_excel():
     if not os.path.exists(DB_PATH):
@@ -78,7 +81,8 @@ def index():
         preds = []
         for i in range(6):
             features = [last_logs[-lag] for lag in lags]
-            pred_log = model.predict(np.array(features).reshape(1, -1))[0]
+            dtest = xgb.DMatrix(np.array(features).reshape(1, -1))
+            pred_log = model.predict(dtest)[0]
             pred = invert_log_transform(pred_log)
             preds.append(pred)
             last_logs.append(pred_log)

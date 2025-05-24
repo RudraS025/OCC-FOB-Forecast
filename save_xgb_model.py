@@ -1,5 +1,4 @@
 import xgboost as xgb
-import joblib
 import pandas as pd
 import numpy as np
 import sqlite3
@@ -29,6 +28,6 @@ y_train = xgb_train['y']
 model_xgb = xgb.XGBRegressor(n_estimators=100, max_depth=3, learning_rate=0.1, random_state=42, tree_method='hist', n_jobs=1, enable_categorical=False, predictor='auto', verbosity=0)
 model_xgb.fit(X_train.values, y_train.values)
 
-# Save the model using joblib (compatible with Heroku CPU XGBoost)
-joblib.dump(model_xgb, 'xgboost_occ_fob_model.pkl')
-print('Model retrained and saved for CPU-only XGBoost.')
+# Save as JSON (portable)
+model_xgb.get_booster().save_model('xgboost_occ_fob_model.json')
+print('Model saved as xgboost_occ_fob_model.json')
