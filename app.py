@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
+import sqlite3
 from datetime import datetime
 from pandas.tseries.offsets import DateOffset
 
@@ -11,15 +12,26 @@ app = Flask(__name__)
 MODEL_PATH = 'xgboost_occ_fob_model.pkl'
 DATA_PATH = 'Paper_TimeSeries.xlsx'
 RESULTS_PATH = 'OCC_FOB_Results.xlsx'
+DB_PATH = 'occ_fob_data.db'
 
 # Load model and data
 def load_model():
     return joblib.load(MODEL_PATH)
 
+def init_db_from_excel():
+    if not os.path.exists(DB_PATH):
+        df = pd.read_excel(DATA_PATH)
+        df.columns = ['Date', 'OCC_FOB_USD_ton']
+        df['Date'] = pd.to_datetime(df['Date'])
+        conn = sqlite3.connect(DB_PATH)
+        df.to_sql('occ_fob', conn, if_exists='replace', index=False)
+        conn.close()
+
 def load_data():
-    df = pd.read_excel(DATA_PATH)
-    df.columns = ['Date', 'OCC_FOB_USD_ton']
-    df['Date'] = pd.to_datetime(df['Date'])
+    init_db_from_excel()
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql_query('SELECT * FROM occ_fob', conn, parse_dates=['Date'])
+    conn.close()
     df = df.set_index('Date').sort_index()
     return df
 
@@ -32,6 +44,13 @@ def create_lag_features(series, lags=[1, 12]):
         df_feat[f'lag_{lag}'] = series.shift(lag)
     df_feat = df_feat.dropna()
     return df_feat
+
+def add_new_price(new_date, new_value):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute('INSERT OR REPLACE INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
+    conn.commit()
+    conn.close()
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -47,12 +66,9 @@ def index():
         try:
             new_value = float(request.form['new_value'])
             new_date = pd.to_datetime(request.form['new_date'])
-            # Update data
-            df.loc[new_date] = new_value
-            df = df.sort_index()
-            df.to_excel(DATA_PATH)
+            add_new_price(new_date, new_value)
+            df = load_data()
             log_series = np.log(df['OCC_FOB_USD_ton'])
-            # Save updated data
             message = f"Added {new_value} for {new_date.strftime('%B %Y')}!"
         except Exception as e:
             message = f"Error: {e}"

@@ -6,3 +6,4 @@ openpyxl
 xgboost==1.7.6
 scikit-learn
 gunicorn
+sqlite3
