@@ -59,11 +59,15 @@ def create_lag_features(series, lags=[1, 12]):
     return df_feat
 
 def add_new_price(new_date, new_value):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute('INSERT OR REPLACE INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute('INSERT OR REPLACE INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
+        conn.commit()
+        conn.close()
+        print(f"[DEBUG] Successfully added {new_value} for {new_date.strftime('%Y-%m-%d')} to DB.")
+    except Exception as e:
+        print(f"[ERROR] Failed to add new price: {e}")
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
