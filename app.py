@@ -180,6 +180,17 @@ def download():
     except Exception as e:
         return f"Internal Server Error: {e}", 500
 
+@app.route('/delete_db')
+def delete_db():
+    try:
+        if os.path.exists(DB_PATH):
+            os.remove(DB_PATH)
+            return f"Database {DB_PATH} deleted. Please reload the main page to re-initialize."
+        else:
+            return f"Database {DB_PATH} does not exist."
+    except Exception as e:
+        return f"Error deleting database: {e}", 500
+
 # NOTE: On Render, use a persistent disk for occ_fob_data.db or switch to a managed DB for true persistence.
 
 if __name__ == '__main__':
