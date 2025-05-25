@@ -37,12 +37,15 @@ def init_db_from_excel():
 
 def load_data():
     # Only initialize DB from Excel if DB does not exist (prevents overwriting user data)
+    print(f"[DEBUG] DB_PATH: {DB_PATH} Exists: {os.path.exists(DB_PATH)}")
     if not os.path.exists(DB_PATH):
+        print("[DEBUG] Initializing DB from Excel...")
         init_db_from_excel()
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query('SELECT * FROM occ_fob', conn, parse_dates=['Date'])
     conn.close()
     df = df.set_index('Date').sort_index()
+    print(f"[DEBUG] Latest date in DB: {df.index.max() if not df.empty else 'No Data'}")
     return df
 
 def invert_log_transform(log_preds):
