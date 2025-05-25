@@ -101,11 +101,17 @@ def index():
         # Prepare data for graph: last 4 months actual + 6 months forecast
         actual_dates = df.index[-4:]
         actual_values = df['OCC_FOB_USD_ton'][-4:]
-        forecast_months = forecast_dates
-        forecast_values = preds
+        # Only use forecast_dates that are valid (not NaT)
+        valid_forecast = [(d, v) for d, v in zip(forecast_dates, preds) if not pd.isnull(d)]
+        if valid_forecast:
+            forecast_months, forecast_values = zip(*valid_forecast)
+        else:
+            forecast_months, forecast_values = [], []
         plt.figure(figsize=(10,5))
-        plt.plot(actual_dates, actual_values, marker='o', label='Actual (last 4 months)')
-        plt.plot(forecast_months, forecast_values, marker='x', linestyle='--', label='Forecast (next 6 months)')
+        if len(actual_dates) > 0:
+            plt.plot(actual_dates, actual_values, marker='o', label='Actual (last 4 months)')
+        if len(forecast_months) > 0:
+            plt.plot(forecast_months, forecast_values, marker='x', linestyle='--', label='Forecast (next 6 months)')
         plt.xlabel('Date')
         plt.ylabel('OCC FOB (USD/ton)')
         plt.title('OCC FOB (USD/ton): Last 4 Actual & Next 6 Forecasted')
