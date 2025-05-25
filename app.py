@@ -77,6 +77,10 @@ def create_lag_features(series, lags=[1, 12]):
     return df_feat
 
 def add_new_price(new_date, new_value):
+    print(f"[DEBUG] add_new_price called with new_date={new_date} (type: {type(new_date)}), new_value={new_value}")
+    if pd.isnull(new_date) or not isinstance(new_date, pd.Timestamp):
+        print(f"[DEBUG] Invalid new_date: {new_date}")
+        raise ValueError(f"Invalid date: {new_date}")
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
@@ -115,8 +119,9 @@ def index():
         message = None
         if request.method == 'POST':
             try:
+                print(f"[DEBUG] POST form: {request.form}")
                 new_value = float(request.form['new_value'])
-                new_date = pd.to_datetime(request.form['new_date'])
+                new_date = pd.to_datetime(request.form['new_date'], errors='coerce')
                 add_new_price(new_date, new_value)
                 # Force reload from DB after adding new value
                 df = load_data()
