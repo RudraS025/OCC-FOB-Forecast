@@ -82,15 +82,16 @@ def index():
                 new_value = float(request.form['new_value'])
                 new_date = pd.to_datetime(request.form['new_date'])
                 add_new_price(new_date, new_value)
+                # Force reload from DB after adding new value
                 df = load_data()
                 log_series = np.log(df['OCC_FOB_USD_ton'])
-                # Update last_month and last_month_str after adding new value
                 last_month = df.index.max()
                 if pd.isnull(last_month):
                     last_month_str = "No Data"
                 else:
                     last_month_str = last_month.strftime('%B %Y')
                 message = f"Added {new_value} for {new_date.strftime('%B %Y')}!"
+                print(f"[DEBUG] After add: Latest date in DB: {last_month}")
             except Exception as e:
                 message = f"Error: {e}"
         # Always update last_month and last_month_str after any changes
