@@ -82,10 +82,16 @@ def index():
                 add_new_price(new_date, new_value)
                 df = load_data()
                 log_series = np.log(df['OCC_FOB_USD_ton'])
+                # Update last_month and last_month_str after adding new value
+                last_month = df.index.max()
+                if pd.isnull(last_month):
+                    last_month_str = "No Data"
+                else:
+                    last_month_str = last_month.strftime('%B %Y')
                 message = f"Added {new_value} for {new_date.strftime('%B %Y')}!"
             except Exception as e:
                 message = f"Error: {e}"
-        # Update last_month to be the latest date in the database (after any new entry)
+        # Always update last_month and last_month_str after any changes
         last_month = df.index.max()
         if pd.isnull(last_month):
             last_month_str = "No Data"
