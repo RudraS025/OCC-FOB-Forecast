@@ -36,7 +36,9 @@ def init_db_from_excel():
         conn.close()
 
 def load_data():
-    init_db_from_excel()
+    # Only initialize DB from Excel if DB does not exist (prevents overwriting user data)
+    if not os.path.exists(DB_PATH):
+        init_db_from_excel()
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query('SELECT * FROM occ_fob', conn, parse_dates=['Date'])
     conn.close()
@@ -174,6 +176,8 @@ def download():
         return 'Results file not found.'
     except Exception as e:
         return f"Internal Server Error: {e}", 500
+
+# NOTE: On Render, use a persistent disk for occ_fob_data.db or switch to a managed DB for true persistence.
 
 if __name__ == '__main__':
     app.run(debug=True)
