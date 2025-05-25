@@ -63,6 +63,8 @@ def load_data():
     conn = get_db_connection()
     df = pd.read_sql_query('SELECT * FROM occ_fob', conn, parse_dates=['Date'])
     conn.close()
+    # Drop rows with NaT or null dates
+    df = df[df['Date'].notnull()]
     df = df.set_index('Date').sort_index()
     return df
 
@@ -84,13 +86,40 @@ def add_new_price(new_date, new_value):
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
+        # Check if date already exists
+        cur.execute('SELECT COUNT(*) FROM occ_fob WHERE Date = ?', (new_date.strftime('%Y-%m-%d'),))
+        if cur.fetchone()[0] > 0:
+            print(f"[DEBUG] Date {new_date.strftime('%Y-%m-%d')} already exists in DB. Skipping insert.")
+            conn.close()
+            return
         cur.execute('INSERT OR REPLACE INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
         conn.commit()
         conn.close()
+        cleanup_db()
         log_all_dates()
     except Exception as e:
         print(f"[DEBUG] DB write error: {e}")
         raise
+
+def cleanup_db():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        # Remove rows where Date is NULL, empty, or not a valid date
+        cur.execute("DELETE FROM occ_fob WHERE Date IS NULL OR Date = ''")
+        conn.commit()
+        # Remove rows where Date cannot be parsed as a date
+        df = pd.read_sql_query('SELECT Date FROM occ_fob', conn)
+        for d in df['Date']:
+            try:
+                pd.to_datetime(d)
+            except Exception:
+                cur.execute('DELETE FROM occ_fob WHERE Date = ?', (d,))
+        conn.commit()
+        conn.close()
+        print("[DEBUG] DB cleaned of invalid dates.")
+    except Exception as e:
+        print(f"[DEBUG] Error cleaning DB: {e}")
 
 # Utility: Log all dates in DB for debugging
 def log_all_dates():
