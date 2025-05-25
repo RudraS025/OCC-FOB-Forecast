@@ -12,13 +12,14 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import io
 import base64
+import stat
 
 app = Flask(__name__)
 
 MODEL_PATH = 'xgboost_occ_fob_model.json'
 DATA_PATH = 'Paper_TimeSeries.xlsx'
 RESULTS_PATH = 'OCC_FOB_Results.xlsx'
-DB_PATH = '/data/occ_fob_data.db'
+DB_PATH = '/data/occ_fob_data.db'  # Change to 'occ_fob_data.db' for local dev if needed
 
 # Load model and data
 def load_model():
@@ -26,20 +27,40 @@ def load_model():
     booster.load_model('xgboost_occ_fob_model.json')
     return booster
 
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('PRAGMA journal_mode=WAL;')
+    conn.execute('PRAGMA synchronous=NORMAL;')
+    return conn
+
+def ensure_table_schema():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('''CREATE TABLE IF NOT EXISTS occ_fob (
+        Date TEXT PRIMARY KEY,
+        OCC_FOB_USD_ton REAL
+    )''')
+    conn.commit()
+    conn.close()
+
 def init_db_from_excel():
     if not os.path.exists(DB_PATH):
         df = pd.read_excel(DATA_PATH)
         df.columns = ['Date', 'OCC_FOB_USD_ton']
         df['Date'] = pd.to_datetime(df['Date'])
-        conn = sqlite3.connect(DB_PATH)
-        df.to_sql('occ_fob', conn, if_exists='replace', index=False)
+        ensure_table_schema()
+        conn = get_db_connection()
+        for _, row in df.iterrows():
+            conn.execute('INSERT OR REPLACE INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (row['Date'].strftime('%Y-%m-%d'), row['OCC_FOB_USD_ton']))
+        conn.commit()
         conn.close()
 
 def load_data():
     # Only initialize DB from Excel if DB does not exist (prevents overwriting user data)
     if not os.path.exists(DB_PATH):
         init_db_from_excel()
-    conn = sqlite3.connect(DB_PATH)
+    ensure_table_schema()
+    conn = get_db_connection()
     df = pd.read_sql_query('SELECT * FROM occ_fob', conn, parse_dates=['Date'])
     conn.close()
     df = df.set_index('Date').sort_index()
@@ -56,11 +77,26 @@ def create_lag_features(series, lags=[1, 12]):
     return df_feat
 
 def add_new_price(new_date, new_value):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute('INSERT OR REPLACE INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute('INSERT OR REPLACE INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
+        conn.commit()
+        conn.close()
+        log_all_dates()
+    except Exception as e:
+        print(f"[DEBUG] DB write error: {e}")
+        raise
+
+# Utility: Log all dates in DB for debugging
+def log_all_dates():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        df = pd.read_sql_query('SELECT Date FROM occ_fob ORDER BY Date', conn, parse_dates=['Date'])
+        conn.close()
+        print(f"[DEBUG] All dates in DB after insert: {list(df['Date'])}")
+    except Exception as e:
+        print(f"[DEBUG] Error reading all dates: {e}")
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -179,6 +215,14 @@ def download():
         return f"Internal Server Error: {e}", 500
 
 # NOTE: On Render, use a persistent disk for occ_fob_data.db or switch to a managed DB for true persistence.
+
+# At app startup, print DB path and permissions
+print(f"[DEBUG] App startup. DB path: {DB_PATH}")
+try:
+    st = os.stat(DB_PATH)
+    print(f"[DEBUG] DB path: {DB_PATH}, mode: {oct(st.st_mode)}, owner: {st.st_uid}, perms: {stat.filemode(st.st_mode)}")
+except Exception as e:
+    print(f"[DEBUG] Could not stat DB file at startup: {e}")
 
 if __name__ == '__main__':
     app.run(debug=True)
