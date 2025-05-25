@@ -214,6 +214,30 @@ def download():
     except Exception as e:
         return f"Internal Server Error: {e}", 500
 
+@app.route('/db_status')
+def db_status():
+    try:
+        exists = os.path.exists(DB_PATH)
+        try:
+            st = os.stat(DB_PATH)
+            perms = stat.filemode(st.st_mode)
+            owner = st.st_uid
+            size = st.st_size
+        except Exception as e:
+            perms = f"Error: {e}"
+            owner = 'N/A'
+            size = 'N/A'
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            df = pd.read_sql_query('SELECT Date FROM occ_fob ORDER BY Date', conn, parse_dates=['Date'])
+            conn.close()
+            dates = [str(d) for d in df['Date']]
+        except Exception as e:
+            dates = [f"Error: {e}"]
+        return f"DB_PATH: {DB_PATH}<br>Exists: {exists}<br>Perms: {perms}<br>Owner: {owner}<br>Size: {size}<br>Dates in DB:<br>{'<br>'.join(dates)}"
+    except Exception as e:
+        return f"Error in /db_status: {e}", 500
+
 # NOTE: On Render, use a persistent disk for occ_fob_data.db or switch to a managed DB for true persistence.
 
 # At app startup, print DB path and permissions
