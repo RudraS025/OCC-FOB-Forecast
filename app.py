@@ -85,23 +85,31 @@ def index():
                 message = f"Added {new_value} for {new_date.strftime('%B %Y')}!"
             except Exception as e:
                 message = f"Error: {e}"
+        # Update last_month to be the latest date in the database (after any new entry)
+        last_month = df.index.max()
+        if pd.isnull(last_month):
+            last_month_str = "No Data"
+        else:
+            last_month_str = last_month.strftime('%B %Y')
         # Prepare lags for forecast
         last_logs = list(np.log(df['OCC_FOB_USD_ton'])[-max(lags):])
         preds = []
+        forecast_dates = []
         for i in range(6):
             features = [last_logs[-lag] for lag in lags]
             dtest = xgb.DMatrix(np.array(features).reshape(1, -1))
             pred_log = model.predict(dtest)[0]
             pred = invert_log_transform(pred_log)
             preds.append(pred)
+            # For each forecast, increment the last_month by i+1 months
+            forecast_date = last_month + DateOffset(months=i+1)
+            forecast_dates.append(forecast_date)
             last_logs.append(pred_log)
-        forecast_dates = [df.index[-1] + DateOffset(months=i+1) for i in range(6)]
         forecast = list(zip([d.strftime('%b %Y') if not pd.isnull(d) else "No Date" for d in forecast_dates], preds))
 
         # Prepare data for graph: last 4 months actual + 6 months forecast
         actual_dates = df.index[-4:]
         actual_values = df['OCC_FOB_USD_ton'][-4:]
-        # Only use forecast_dates that are valid (not NaT)
         valid_forecast = [(d, v) for d, v in zip(forecast_dates, preds) if not pd.isnull(d)]
         if valid_forecast:
             forecast_months, forecast_values = zip(*valid_forecast)
@@ -122,7 +130,6 @@ def index():
         img.seek(0)
         plot_url = base64.b64encode(img.getvalue()).decode()
         plt.close()
-
         return render_template('index.html', forecast=forecast, last_month=last_month_str, message=message, plot_url=plot_url)
     except Exception as e:
         return f"Internal Server Error: {e}", 500
@@ -131,9 +138,9 @@ def index():
 def download():
     try:
         df = load_data()
-        # Prepare actual vs forecast for export
         lags = [1, 12]
         model = load_model()
+        last_month = df.index.max()
         last_logs = list(np.log(df['OCC_FOB_USD_ton'])[-max(lags):])
         preds = []
         forecast_dates = []
@@ -143,8 +150,9 @@ def download():
             pred_log = model.predict(dtest)[0]
             pred = invert_log_transform(pred_log)
             preds.append(pred)
+            forecast_date = last_month + DateOffset(months=i+1)
+            forecast_dates.append(forecast_date)
             last_logs.append(pred_log)
-            forecast_dates.append(df.index[-1] + DateOffset(months=i+1))
         forecast_df = pd.DataFrame({'Date': forecast_dates, 'Forecast_OCC_FOB_USD_ton': preds})
         forecast_df['Date'] = forecast_df['Date'].dt.strftime('%b %Y')
         actual_df = df.reset_index().rename(columns={'Date': 'Date', 'OCC_FOB_USD_ton': 'Actual_OCC_FOB_USD_ton'})
