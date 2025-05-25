@@ -106,6 +106,10 @@ def index():
             forecast_date = (forecast_start + DateOffset(months=i)).replace(day=1)
             forecast_dates.append(forecast_date)
             last_logs.append(pred_log)
+        # Remove the first forecast month if it matches the latest actual month (should never happen, but just in case)
+        if forecast_dates[0].strftime('%b %Y') == last_month.strftime('%b %Y'):
+            forecast_dates = forecast_dates[1:]
+            preds = preds[1:]
         forecast = list(zip([d.strftime('%b %Y') if not pd.isnull(d) else "No Date" for d in forecast_dates], preds))
 
         # Prepare data for graph: last 4 months actual + 6 months forecast
