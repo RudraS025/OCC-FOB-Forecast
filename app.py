@@ -102,14 +102,12 @@ def index():
             dtest = xgb.DMatrix(np.array(features).reshape(1, -1))
             pred_log = model.predict(dtest)[0]
             pred = invert_log_transform(pred_log)
-            preds.append(pred)
             forecast_date = (forecast_start + DateOffset(months=i)).replace(day=1)
-            forecast_dates.append(forecast_date)
+            # Only add forecast if forecast_date > last_month
+            if forecast_date > last_month:
+                preds.append(pred)
+                forecast_dates.append(forecast_date)
             last_logs.append(pred_log)
-        # Remove the first forecast month if it matches the latest actual month (should never happen, but just in case)
-        if forecast_dates[0].strftime('%b %Y') == last_month.strftime('%b %Y'):
-            forecast_dates = forecast_dates[1:]
-            preds = preds[1:]
         forecast = list(zip([d.strftime('%b %Y') if not pd.isnull(d) else "No Date" for d in forecast_dates], preds))
 
         # Prepare data for graph: last 4 months actual + 6 months forecast
@@ -156,9 +154,11 @@ def download():
             dtest = xgb.DMatrix(np.array(features).reshape(1, -1))
             pred_log = model.predict(dtest)[0]
             pred = invert_log_transform(pred_log)
-            preds.append(pred)
             forecast_date = (forecast_start + DateOffset(months=i)).replace(day=1)
-            forecast_dates.append(forecast_date)
+            # Only add forecast if forecast_date > last_month
+            if forecast_date > last_month:
+                preds.append(pred)
+                forecast_dates.append(forecast_date)
             last_logs.append(pred_log)
         forecast_df = pd.DataFrame({'Date': forecast_dates, 'Forecast_OCC_FOB_USD_ton': preds})
         forecast_df['Date'] = forecast_df['Date'].dt.strftime('%b %Y')
