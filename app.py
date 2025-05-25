@@ -95,7 +95,7 @@ def index():
         last_logs = list(np.log(df['OCC_FOB_USD_ton'])[-max(lags):])
         preds = []
         forecast_dates = []
-        # Forecast should start from the month AFTER the latest actual value
+        # Forecast always starts from the month AFTER the latest actual value
         forecast_start = (last_month + DateOffset(months=1)).replace(day=1)
         for i in range(6):
             features = [last_logs[-lag] for lag in lags]
@@ -103,10 +103,8 @@ def index():
             pred_log = model.predict(dtest)[0]
             pred = invert_log_transform(pred_log)
             forecast_date = (forecast_start + DateOffset(months=i)).replace(day=1)
-            # Only add forecast if forecast_date > last_month
-            if forecast_date > last_month:
-                preds.append(pred)
-                forecast_dates.append(forecast_date)
+            preds.append(pred)
+            forecast_dates.append(forecast_date)
             last_logs.append(pred_log)
         forecast = list(zip([d.strftime('%b %Y') if not pd.isnull(d) else "No Date" for d in forecast_dates], preds))
 
@@ -147,7 +145,7 @@ def download():
         last_logs = list(np.log(df['OCC_FOB_USD_ton'])[-max(lags):])
         preds = []
         forecast_dates = []
-        # Forecast should start from the month AFTER the latest actual value
+        # Forecast always starts from the month AFTER the latest actual value
         forecast_start = (last_month + DateOffset(months=1)).replace(day=1)
         for i in range(6):
             features = [last_logs[-lag] for lag in lags]
@@ -155,10 +153,8 @@ def download():
             pred_log = model.predict(dtest)[0]
             pred = invert_log_transform(pred_log)
             forecast_date = (forecast_start + DateOffset(months=i)).replace(day=1)
-            # Only add forecast if forecast_date > last_month
-            if forecast_date > last_month:
-                preds.append(pred)
-                forecast_dates.append(forecast_date)
+            preds.append(pred)
+            forecast_dates.append(forecast_date)
             last_logs.append(pred_log)
         forecast_df = pd.DataFrame({'Date': forecast_dates, 'Forecast_OCC_FOB_USD_ton': preds})
         forecast_df['Date'] = forecast_df['Date'].dt.strftime('%b %Y')
