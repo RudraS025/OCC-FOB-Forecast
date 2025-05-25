@@ -37,15 +37,12 @@ def init_db_from_excel():
 
 def load_data():
     # Only initialize DB from Excel if DB does not exist (prevents overwriting user data)
-    print(f"[DEBUG] DB_PATH: {DB_PATH} Exists: {os.path.exists(DB_PATH)}")
     if not os.path.exists(DB_PATH):
-        print("[DEBUG] Initializing DB from Excel...")
         init_db_from_excel()
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query('SELECT * FROM occ_fob', conn, parse_dates=['Date'])
     conn.close()
     df = df.set_index('Date').sort_index()
-    print(f"[DEBUG] Latest date in DB: {df.index.max() if not df.empty else 'No Data'}")
     return df
 
 def invert_log_transform(log_preds):
@@ -59,15 +56,11 @@ def create_lag_features(series, lags=[1, 12]):
     return df_feat
 
 def add_new_price(new_date, new_value):
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute('INSERT OR REPLACE INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
-        conn.commit()
-        conn.close()
-        print(f"[DEBUG] Successfully added {new_value} for {new_date.strftime('%Y-%m-%d')} to DB.")
-    except Exception as e:
-        print(f"[ERROR] Failed to add new price: {e}")
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute('INSERT OR REPLACE INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
+    conn.commit()
+    conn.close()
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -183,17 +176,6 @@ def download():
         return 'Results file not found.'
     except Exception as e:
         return f"Internal Server Error: {e}", 500
-
-@app.route('/delete_db')
-def delete_db():
-    try:
-        if os.path.exists(DB_PATH):
-            os.remove(DB_PATH)
-            return f"Database {DB_PATH} deleted. Please reload the main page to re-initialize."
-        else:
-            return f"Database {DB_PATH} does not exist."
-    except Exception as e:
-        return f"Error deleting database: {e}", 500
 
 # NOTE: On Render, use a persistent disk for occ_fob_data.db or switch to a managed DB for true persistence.
 
