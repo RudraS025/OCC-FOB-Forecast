@@ -18,7 +18,7 @@ app = Flask(__name__)
 MODEL_PATH = 'xgboost_occ_fob_model.json'
 DATA_PATH = 'Paper_TimeSeries.xlsx'
 RESULTS_PATH = 'OCC_FOB_Results.xlsx'
-DB_PATH = 'occ_fob_data.db'
+DB_PATH = '/data/occ_fob_data.db'
 
 # Load model and data
 def load_model():
