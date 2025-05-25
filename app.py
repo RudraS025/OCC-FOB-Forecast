@@ -7,6 +7,11 @@ import sqlite3
 from datetime import datetime
 from pandas.tseries.offsets import DateOffset
 import xgboost as xgb
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import io
+import base64
 
 app = Flask(__name__)
 
@@ -92,15 +97,60 @@ def index():
             last_logs.append(pred_log)
         forecast_dates = [df.index[-1] + DateOffset(months=i+1) for i in range(6)]
         forecast = list(zip([d.strftime('%b %Y') if not pd.isnull(d) else "No Date" for d in forecast_dates], preds))
-        return render_template('index.html', forecast=forecast, last_month=last_month_str, message=message)
+
+        # Prepare data for graph: last 4 months actual + 6 months forecast
+        actual_dates = df.index[-4:]
+        actual_values = df['OCC_FOB_USD_ton'][-4:]
+        forecast_months = forecast_dates
+        forecast_values = preds
+        plt.figure(figsize=(10,5))
+        plt.plot(actual_dates, actual_values, marker='o', label='Actual (last 4 months)')
+        plt.plot(forecast_months, forecast_values, marker='x', linestyle='--', label='Forecast (next 6 months)')
+        plt.xlabel('Date')
+        plt.ylabel('OCC FOB (USD/ton)')
+        plt.title('OCC FOB (USD/ton): Last 4 Actual & Next 6 Forecasted')
+        plt.legend()
+        plt.tight_layout()
+        img = io.BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+        plot_url = base64.b64encode(img.getvalue()).decode()
+        plt.close()
+
+        return render_template('index.html', forecast=forecast, last_month=last_month_str, message=message, plot_url=plot_url)
     except Exception as e:
         return f"Internal Server Error: {e}", 500
 
 @app.route('/download')
 def download():
-    if os.path.exists(RESULTS_PATH):
-        return send_file(RESULTS_PATH, as_attachment=True)
-    return 'Results file not found.'
+    try:
+        df = load_data()
+        # Prepare actual vs forecast for export
+        lags = [1, 12]
+        model = load_model()
+        last_logs = list(np.log(df['OCC_FOB_USD_ton'])[-max(lags):])
+        preds = []
+        forecast_dates = []
+        for i in range(6):
+            features = [last_logs[-lag] for lag in lags]
+            dtest = xgb.DMatrix(np.array(features).reshape(1, -1))
+            pred_log = model.predict(dtest)[0]
+            pred = invert_log_transform(pred_log)
+            preds.append(pred)
+            last_logs.append(pred_log)
+            forecast_dates.append(df.index[-1] + DateOffset(months=i+1))
+        forecast_df = pd.DataFrame({'Date': forecast_dates, 'Forecast_OCC_FOB_USD_ton': preds})
+        forecast_df['Date'] = forecast_df['Date'].dt.strftime('%b %Y')
+        actual_df = df.reset_index().rename(columns={'Date': 'Date', 'OCC_FOB_USD_ton': 'Actual_OCC_FOB_USD_ton'})
+        actual_df['Date'] = actual_df['Date'].dt.strftime('%b %Y')
+        with pd.ExcelWriter(RESULTS_PATH, engine='openpyxl') as writer:
+            actual_df.to_excel(writer, sheet_name='Actual', index=False)
+            forecast_df.to_excel(writer, sheet_name='Forecast', index=False)
+        if os.path.exists(RESULTS_PATH):
+            return send_file(RESULTS_PATH, as_attachment=True)
+        return 'Results file not found.'
+    except Exception as e:
+        return f"Internal Server Error: {e}", 500
 
 if __name__ == '__main__':
     app.run(debug=True)
