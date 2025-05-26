@@ -99,6 +99,7 @@ def add_new_price(new_date, new_value):
         cur.execute('INSERT INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
         conn.commit()
         conn.close()
+        # Only clean up rows with invalid dates, not all others
         cleanup_db()
         log_all_dates()
     except Exception as e:
@@ -153,7 +154,7 @@ def index():
         model = load_model()
         forecast = None
         forecast_dates = None
-        last_month = df.index[-1]
+        last_month = df.index[-1] if len(df.index) > 0 else None
         if pd.isnull(last_month):
             last_month_str = "No Data"
         else:
@@ -168,7 +169,7 @@ def index():
                 # Force reload from DB after adding new value
                 df = load_data()
                 log_series = np.log(df['OCC_FOB_USD_ton'])
-                last_month = df.index.max()
+                last_month = df.index.max() if len(df.index) > 0 else None
                 if pd.isnull(last_month):
                     last_month_str = "No Data"
                 else:
@@ -178,13 +179,18 @@ def index():
             except Exception as e:
                 message = f"Error: {e}"
         # Always update last_month and last_month_str after any changes
-        last_month = df.index.max()
+        last_month = df.index.max() if len(df.index) > 0 else None
         if pd.isnull(last_month):
             last_month_str = "No Data"
         else:
             last_month_str = last_month.strftime('%B %Y')
         # Prepare lags for forecast
         last_logs = list(np.log(df['OCC_FOB_USD_ton'])[-max(lags):])
+        if len(last_logs) < max(lags):
+            message = (message or "") + " Not enough data to forecast. Please ensure at least 12 months of data are present."
+            forecast = []
+            plot_url = None
+            return render_template('index.html', forecast=forecast, last_month=last_month_str, message=message, plot_url=plot_url)
         preds = []
         forecast_dates = []
         # Forecast always starts from the month AFTER the latest actual value
