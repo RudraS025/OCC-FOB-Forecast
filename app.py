@@ -291,6 +291,15 @@ def db_status():
     except Exception as e:
         return f"Error in /db_status: {e}", 500
 
+# --- Admin route to reset DB from Excel ---
+@app.route('/admin/reset_db')
+def admin_reset_db():
+    import os
+    if os.path.exists(DB_PATH):
+        os.remove(DB_PATH)
+    init_db_from_excel()
+    return redirect(url_for('db_status'))
+
 # NOTE: On Render, use a persistent disk for occ_fob_data.db or switch to a managed DB for true persistence.
 
 # At app startup, print DB path and permissions
