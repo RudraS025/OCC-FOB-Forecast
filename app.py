@@ -44,6 +44,10 @@ def ensure_table_schema():
     conn.close()
 
 def init_db_from_excel(force=False):
+    # Always reload from Excel if force=True, even if DB exists
+    if force:
+        if os.path.exists(DB_PATH):
+            os.remove(DB_PATH)
     if force or not os.path.exists(DB_PATH):
         df = pd.read_excel(DATA_PATH)
         df.columns = ['Date', 'OCC_FOB_USD_ton']
@@ -149,9 +153,6 @@ def log_all_dates():
 def index():
     try:
         if request.method == 'POST' and 'reset_db' in request.form:
-            import os
-            if os.path.exists(DB_PATH):
-                os.remove(DB_PATH)
             init_db_from_excel(force=True)
             message = 'Database has been reset to original historical data.'
             df = load_data()
