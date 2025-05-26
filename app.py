@@ -43,8 +43,8 @@ def ensure_table_schema():
     conn.commit()
     conn.close()
 
-def init_db_from_excel():
-    if not os.path.exists(DB_PATH):
+def init_db_from_excel(force=False):
+    if force or not os.path.exists(DB_PATH):
         df = pd.read_excel(DATA_PATH)
         df.columns = ['Date', 'OCC_FOB_USD_ton']
         df['Date'] = pd.to_datetime(df['Date'])
@@ -152,7 +152,7 @@ def index():
             import os
             if os.path.exists(DB_PATH):
                 os.remove(DB_PATH)
-            init_db_from_excel()
+            init_db_from_excel(force=True)
             message = 'Database has been reset to original historical data.'
             df = load_data()
             log_series = np.log(df['OCC_FOB_USD_ton'])
