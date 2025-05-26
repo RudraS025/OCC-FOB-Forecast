@@ -105,17 +105,26 @@ def cleanup_db():
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        # Remove rows where Date is NULL, empty, or not a valid date
-        cur.execute("DELETE FROM occ_fob WHERE Date IS NULL OR Date = ''")
+        # Remove rows where Date is NULL, empty, or OCC_FOB_USD_ton is NULL
+        cur.execute("DELETE FROM occ_fob WHERE Date IS NULL OR Date = '' OR OCC_FOB_USD_ton IS NULL")
         conn.commit()
-        # Remove rows where Date cannot be parsed as a date
+        # Remove rows where Date cannot be parsed as a valid date or not in YYYY-MM-DD format
         df = pd.read_sql_query('SELECT Date FROM occ_fob', conn)
         for d in df['Date']:
             try:
-                pd.to_datetime(d)
+                dt = pd.to_datetime(d, errors='raise')
+                # Only keep if string matches YYYY-MM-DD
+                if not (isinstance(d, str) and len(d) == 10 and d[4] == '-' and d[7] == '-'): 
+                    raise ValueError('Bad format')
             except Exception:
-                cur.execute('DELETE FROM occ_fob WHERE Date = ?', (d,))
+                cur.execute('DELETE FROM occ_fob WHERE Date = ? OR Date IS NULL OR Date = ""', (d if d is not None else '',))
         conn.commit()
+        # Vacuum DB to clean up deleted rows
+        cur.execute('VACUUM')
+        conn.commit()
+        # Print all dates and their types for debugging
+        df2 = pd.read_sql_query('SELECT Date FROM occ_fob ORDER BY Date', conn)
+        print("[DEBUG] Dates/types after cleanup:", [(d, type(d)) for d in df2['Date']])
         conn.close()
         print("[DEBUG] DB cleaned of invalid dates.")
     except Exception as e:
