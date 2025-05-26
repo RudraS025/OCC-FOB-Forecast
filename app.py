@@ -86,13 +86,17 @@ def add_new_price(new_date, new_value):
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        # Check if date already exists
-        cur.execute('SELECT COUNT(*) FROM occ_fob WHERE Date = ?', (new_date.strftime('%Y-%m-%d'),))
-        if cur.fetchone()[0] > 0:
-            print(f"[DEBUG] Date {new_date.strftime('%Y-%m-%d')} already exists in DB. Skipping insert.")
-            conn.close()
-            return
-        cur.execute('INSERT OR REPLACE INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
+        # Print all rows with this date for debugging
+        cur.execute('SELECT * FROM occ_fob WHERE Date = ?', (new_date.strftime('%Y-%m-%d'),))
+        rows = cur.fetchall()
+        print(f"[DEBUG] Rows with Date={new_date.strftime('%Y-%m-%d')}: {rows}")
+        # If any exist, forcibly delete them
+        if rows:
+            print(f"[DEBUG] Forcibly deleting all rows with Date={new_date.strftime('%Y-%m-%d')}")
+            cur.execute('DELETE FROM occ_fob WHERE Date = ?', (new_date.strftime('%Y-%m-%d'),))
+            conn.commit()
+        # Now insert the new value
+        cur.execute('INSERT INTO occ_fob (Date, OCC_FOB_USD_ton) VALUES (?, ?)', (new_date.strftime('%Y-%m-%d'), new_value))
         conn.commit()
         conn.close()
         cleanup_db()
