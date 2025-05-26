@@ -30,6 +30,9 @@
             <div class="col-auto align-self-end">
                 <button type="submit" class="btn btn-custom">Add & Forecast</button>
             </div>
+            <div class="col-auto align-self-end">
+                <button type="submit" class="btn btn-danger" name="reset_db" value="1" onclick="return confirm('Are you sure you want to reset the database to original historical data? This will remove all changes.');">Reset Database</button>
+            </div>
         </form>
         {% if message %}
         <div class="message">{{ message }}</div>

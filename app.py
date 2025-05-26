@@ -148,6 +148,21 @@ def log_all_dates():
 @app.route('/', methods=['GET', 'POST'])
 def index():
     try:
+        if request.method == 'POST' and 'reset_db' in request.form:
+            import os
+            if os.path.exists(DB_PATH):
+                os.remove(DB_PATH)
+            init_db_from_excel()
+            message = 'Database has been reset to original historical data.'
+            df = load_data()
+            log_series = np.log(df['OCC_FOB_USD_ton'])
+            lags = [1, 12]
+            model = load_model()
+            forecast = []
+            plot_url = None
+            last_month = df.index[-1] if len(df.index) > 0 else None
+            last_month_str = last_month.strftime('%B %Y') if last_month is not None else 'No Data'
+            return render_template('index.html', forecast=forecast, last_month=last_month_str, message=message, plot_url=plot_url)
         df = load_data()
         log_series = np.log(df['OCC_FOB_USD_ton'])
         lags = [1, 12]
